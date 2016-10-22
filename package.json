@@ -10,9 +10,9 @@
     "android/RCTVideo.iml",
     "android/src/main/AndroidManifest.xml",
     "android/src/main/res/values/styles.xml",
-    "android/src/main/java/com/brentvatne/react/ReactVideoPackage.java",
-    "android/src/main/java/com/brentvatne/react/ReactVideoViewManager.java",
-    "android/src/main/java/com/brentvatne/react/ReactVideoView.java",
+    "android/src/main/java/com/stremio/react/ReactVideoPackage.java",
+    "android/src/main/java/com/stremio/react/ReactVideoViewManager.java",
+    "android/src/main/java/com/stremio/react/ReactVideoView.java",
     "README.md",
     "Video.js"
   ],
