@@ -14,8 +14,7 @@
     "android/src/main/java/com/brentvatne/react/ReactVideoViewManager.java",
     "android/src/main/java/com/brentvatne/react/ReactVideoView.java",
     "README.md",
-    "Video.js",
-    "VideoResizeMode.js"
+    "Video.js"
   ],
   "contributors": [
     {
@@ -39,7 +38,6 @@
     "eslint-config-airbnb": "4.0.0"
   },
   "dependencies": {
-    "keymirror": "0.1.1"
   },
   "scripts": {
     "test": "node_modules/.bin/eslint *.js"
