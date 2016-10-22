@@ -84,17 +84,13 @@ export default class Video extends Component {
       uri = `file://${uri}`;
     }
 
-    const isNetwork = !!(uri && uri.match(/^https?:/));
-    const isAsset = !!(uri && uri.match(/^(assets-library|file|content):/));
+    // const isNetwork = !!(uri && uri.match(/^https?:/));
+    // const isAsset = !!(uri && uri.match(/^(assets-library|file|content):/));
 
     const nativeProps = Object.assign({}, this.props);
     Object.assign(nativeProps, {
       style: [styles.base, nativeProps.style],
-      src: {
-        uri,
-        isNetwork,
-        isAsset
-      },
+      src: { uri },
       onVideoLoadStart: this._onLoadStart,
       onVideoLoad: this._onLoad,
       onVideoError: this._onError,

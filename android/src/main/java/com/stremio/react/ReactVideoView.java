@@ -3,19 +3,16 @@ package com.stremio.react;
 import android.net.Uri;
 import android.os.Handler;
 import android.util.Log;
-import android.view.MotionEvent;
-import android.webkit.CookieManager;
 
-import android.widget.MediaController;
+import android.view.Surface;
+import android.view.SurfaceHolder;
+import android.view.SurfaceView;
+
 import com.facebook.react.bridge.Arguments;
 import com.facebook.react.bridge.LifecycleEventListener;
 import com.facebook.react.bridge.WritableMap;
 import com.facebook.react.uimanager.ThemedReactContext;
 import com.facebook.react.uimanager.events.RCTEventEmitter;
-
-import android.view.Surface;
-import android.view.SurfaceHolder;
-import android.view.SurfaceView;
 
 import org.videolan.libvlc.IVLCVout;
 import org.videolan.libvlc.LibVLC;
@@ -23,13 +20,14 @@ import org.videolan.libvlc.Media;
 import org.videolan.libvlc.MediaPlayer;
 import org.videolan.libvlc.util.AndroidUtil;
 
-
+import java.lang.ref.WeakReference;
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.Map;
 
 // This originally extended ScalableVideoView, which extends TextureView
 // Now we extend SurfaceView (https://github.com/crosswalk-project/crosswalk-website/wiki/Android-SurfaceView-vs-TextureView)
-public class ReactVideoView extends SurfaceView implements IVLCVout.Callback {
+public class ReactVideoView extends SurfaceView implements IVLCVout.Callback, LifecycleEventListener {
 
     public enum Events {
         EVENT_LOAD_START("onVideoLoadStart"),
@@ -54,20 +52,14 @@ public class ReactVideoView extends SurfaceView implements IVLCVout.Callback {
         }
     }
 
-    public static final String EVENT_PROP_FAST_FORWARD = "canPlayFastForward";
-    public static final String EVENT_PROP_SLOW_FORWARD = "canPlaySlowForward";
-    public static final String EVENT_PROP_SLOW_REVERSE = "canPlaySlowReverse";
-    public static final String EVENT_PROP_REVERSE = "canPlayReverse";
-    public static final String EVENT_PROP_STEP_FORWARD = "canStepForward";
-    public static final String EVENT_PROP_STEP_BACKWARD = "canStepBackward";
+    private static final String TAG = "RCTVLC";
 
     public static final String EVENT_PROP_DURATION = "duration";
-    public static final String EVENT_PROP_PLAYABLE_DURATION = "playableDuration";
+    //public static final String EVENT_PROP_PLAYABLE_DURATION = "playableDuration";
     public static final String EVENT_PROP_CURRENT_TIME = "currentTime";
     public static final String EVENT_PROP_SEEK_TIME = "seekTime";
     public static final String EVENT_PROP_WIDTH = "width";
     public static final String EVENT_PROP_HEIGHT = "height";
-    public static final String EVENT_PROP_ORIENTATION = "orientation";
 
     public static final String EVENT_PROP_ERROR = "error";
     public static final String EVENT_PROP_WHAT = "what";
@@ -76,18 +68,17 @@ public class ReactVideoView extends SurfaceView implements IVLCVout.Callback {
     private ThemedReactContext mThemedReactContext;
     private RCTEventEmitter mEventEmitter;
 
-    private Handler mProgressUpdateHandler = new Handler();
-    private Runnable mProgressUpdateRunnable = null;
-    private Handler videoControlHandler = new Handler();
-    private MediaController mediaController;
-
     private String mSrcUriString = null;
-    private boolean mSrcIsNetwork = false;
-    private boolean mSrcIsAsset = false;
     private boolean mPaused = false;
     private float mVolume = 1.0f;
 
-    private boolean mMediaPlayerValid = false; // True if mMediaPlayer is in prepared, started, paused or completed state.
+    private LibVLC libvlc;
+    private MediaPlayer mMediaPlayer = null;
+    private int mVideoWidth;
+    private int mVideoHeight;
+
+    private SurfaceHolder holder;
+
     private int mVideoDuration = 0;
     private int mVideoBufferedDuration = 0;
     private boolean isCompleted = false;
@@ -99,161 +90,237 @@ public class ReactVideoView extends SurfaceView implements IVLCVout.Callback {
         mEventEmitter = themedReactContext.getJSModule(RCTEventEmitter.class);
         themedReactContext.addLifecycleEventListener(this);
 
-        initializeMediaPlayerIfNeeded();
-        setSurfaceTextureListener(this);
+        createPlayer();
+    }
 
-        mProgressUpdateRunnable = new Runnable() {
-            @Override
-            public void run() {
+    private void createPlayer() {
+        if (mMediaPlayer != null) return;
 
-                if (mMediaPlayerValid && !isCompleted) {
-                    WritableMap event = Arguments.createMap();
-                    event.putDouble(EVENT_PROP_CURRENT_TIME, mMediaPlayer.getCurrentPosition() / 1000.0);
-                    event.putDouble(EVENT_PROP_PLAYABLE_DURATION, mVideoBufferedDuration / 1000.0); //TODO:mBufferUpdateRunnable
-                    mEventEmitter.receiveEvent(getId(), Events.EVENT_PROGRESS.toString(), event);
-                }
-                mProgressUpdateHandler.postDelayed(mProgressUpdateRunnable, 250);
-            }
-        };
-        mProgressUpdateHandler.post(mProgressUpdateRunnable);
+        try {
+            // Create LibVLC
+            ArrayList<String> options = new ArrayList<String>();
+            //options.add("--subsdec-encoding <encoding>");
+            options.add("--aout=opensles");
+            options.add("--audio-time-stretch"); // time stretching
+            options.add("-vvv"); // verbosity
+            options.add("--http-reconnect");
+            options.add("--network-caching="+(8*1000));
+            libvlc = new LibVLC(options);
+            holder.setKeepScreenOn(true);
+
+            // Create media player
+            mMediaPlayer = new MediaPlayer(libvlc);
+            mMediaPlayer.setEventListener(mPlayerListener);
+
+            // Set up video output
+            final IVLCVout vout = mMediaPlayer.getVLCVout();
+            vout.setVideoView(this);
+            vout.addCallback(this);
+            vout.attachViews();
+        } catch (Exception e) {
+            // TODO onError
+        }
+
+        holder = this.getHolder();
+    }
+
+    private void releasePlayer() {
+        if (libvlc == null) return;
+        mMediaPlayer.stop();
+        final IVLCVout vout = mMediaPlayer.getVLCVout();
+        vout.removeCallback(this);
+        vout.detachViews();
+        holder = null;
+        libvlc.release();
+        libvlc = null;
+    }
+
+   private void setSize(int width, int height) {
+        mVideoWidth = width;
+        mVideoHeight = height;
+        if (mVideoWidth * mVideoHeight <= 1)
+            return;
+
+        if(holder == null)
+            return;
+
+        /*
+        // get screen size
+        int w = getWindow().getDecorView().getWidth();
+        int h = getWindow().getDecorView().getHeight();
+
+        // getWindow().getDecorView() doesn't always take orientation into
+        // account, we have to correct the values
+        boolean isPortrait = getResources().getConfiguration().orientation == Configuration.ORIENTATION_PORTRAIT;
+        if (w > h && isPortrait || w < h && !isPortrait) {
+            int i = w;
+            w = h;
+            h = i;
+        }
+
+        float videoAR = (float) mVideoWidth / (float) mVideoHeight;
+        float screenAR = (float) w / (float) h;
+
+        if (screenAR < videoAR)
+            h = (int) (w / videoAR);
+        else
+            w = (int) (h * videoAR);
+        */
+
+        // force surface buffer size
+        holder.setFixedSize(mVideoWidth, mVideoHeight);
+
+        // set display size
+        /*
+        LayoutParams lp = this.getLayoutParams();
+        lp.width = w;
+        lp.height = h;
+        this.setLayoutParams(lp);
+        this.invalidate();
+        */
     }
 
     @Override
-    public boolean onTouchEvent(MotionEvent event) {
-        return super.onTouchEvent(event);
+    public void onNewLayout(IVLCVout vout, int width, int height, int visibleWidth, int visibleHeight, int sarNum, int sarDen) {
+        if (width * height == 0)
+            return;
+
+        // store video size
+        mVideoWidth = width;
+        mVideoHeight = height;
+        setSize(mVideoWidth, mVideoHeight);
     }
 
-    private void initializeMediaPlayerIfNeeded() {
-        if (mMediaPlayer == null) {
-            mMediaPlayerValid = false;
-            mMediaPlayer = new MediaPlayer();
-            mMediaPlayer.setScreenOnWhilePlaying(true);
-            mMediaPlayer.setOnVideoSizeChangedListener(this);
-            mMediaPlayer.setOnErrorListener(this);
-            mMediaPlayer.setOnPreparedListener(this);
-            mMediaPlayer.setOnBufferingUpdateListener(this);
-            mMediaPlayer.setOnCompletionListener(this);
-            mMediaPlayer.setOnInfoListener(this);
-        }
+    @Override
+    public void onSurfacesCreated(IVLCVout vout) {
+
     }
 
-    private void initializeMediaControllerIfNeeded() {
-        if (mediaController == null) {
-            mediaController = new MediaController(this.getContext());
-        }
+    @Override
+    public void onSurfacesDestroyed(IVLCVout vout) {
+
     }
 
-    public void setSrc(final String uriString, final boolean isNetwork, final boolean isAsset) {
+    public void setSrc(final String uriString) {
 
         mSrcUriString = uriString;
-        mSrcIsNetwork = isNetwork;
-        mSrcIsAsset = isAsset;
 
-        mMediaPlayerValid = false;
         mVideoDuration = 0;
-        mVideoBufferedDuration = 0;
 
-        initializeMediaPlayerIfNeeded();
-        mMediaPlayer.reset();
+        createPlayer();
 
-        try {
-            if (isNetwork) {
-                // Use the shared CookieManager to access the cookies
-                // set by WebViews inside the same app
-                CookieManager cookieManager = CookieManager.getInstance();
-
-                Uri parsedUrl = Uri.parse(uriString);
-                Uri.Builder builtUrl = parsedUrl.buildUpon();
-
-                String cookie = cookieManager.getCookie(builtUrl.build().toString());
-
-                Map<String, String> headers = new HashMap<String, String>();
-
-                if (cookie != null) {
-                    headers.put("Cookie", cookie);
-                }
-
-                setDataSource(mThemedReactContext, parsedUrl, headers);
-            } else if (isAsset) {
-                if (uriString.startsWith("content://")) {
-                    Uri parsedUrl = Uri.parse(uriString);
-                    setDataSource(mThemedReactContext, parsedUrl);
-                } else {
-                    setDataSource(uriString);
-                }
-            } else {
-                setRawData(mThemedReactContext.getResources().getIdentifier(
-                        uriString,
-                        "raw",
-                        mThemedReactContext.getPackageName()
-                ));
-            }
-        } catch (Exception e) {
-            e.printStackTrace();
-            return;
-        }
+        Media m = new Media(libvlc, Uri.parse(uriString));
+        mMediaPlayer.setMedia(m);
+        mMediaPlayer.play();
 
         WritableMap src = Arguments.createMap();
         src.putString(ReactVideoViewManager.PROP_SRC_URI, uriString);
-        src.putBoolean(ReactVideoViewManager.PROP_SRC_IS_NETWORK, isNetwork);
         WritableMap event = Arguments.createMap();
         event.putMap(ReactVideoViewManager.PROP_SRC, src);
         mEventEmitter.receiveEvent(getId(), Events.EVENT_LOAD_START.toString(), event);
-
-        prepareAsync(this);
     }
 
     public void setPausedModifier(final boolean paused) {
         mPaused = paused;
 
-        if (!mMediaPlayerValid) {
-            return;
-        }
-
         if (mPaused) {
             if (mMediaPlayer.isPlaying()) {
-                pause();
+                mMediaPlayer.pause();
             }
         } else {
             if (!mMediaPlayer.isPlaying()) {
-                start();
+                mMediaPlayer.play();
             }
         }
     }
 
     public void setVolumeModifier(final float volume) {
         mVolume = volume;
+        mMediaPlayer.setVolume((int) volume * 200);
     }
 
     public void applyModifiers() {
         setPausedModifier(mPaused);
     }
 
+    public void seekTo(int msec) {
+        WritableMap event = Arguments.createMap();
+        event.putDouble(EVENT_PROP_CURRENT_TIME, mMediaPlayer.getTime() / 1000.0);
+        event.putDouble(EVENT_PROP_SEEK_TIME, msec / 1000.0);
+        mEventEmitter.receiveEvent(getId(), Events.EVENT_SEEK.toString(), event);
+
+        mMediaPlayer.setTime(msec);
+        if (isCompleted && mVideoDuration != 0 && msec < mVideoDuration) {
+            isCompleted = false;
+        }
+    }
+
+    @Override
+    public void onHardwareAccelerationError(IVLCVout vout) {
+        // Handle errors with hardware acceleration
+        WritableMap error = Arguments.createMap();
+        error.putString(EVENT_PROP_WHAT, "Error with hardware acceleration");
+        WritableMap event = Arguments.createMap();
+        event.putMap(EVENT_PROP_ERROR, error);
+        mEventEmitter.receiveEvent(getId(), Events.EVENT_ERROR.toString(), event);
+    }
+
+
+    private MediaPlayer.EventListener mPlayerListener = new MyPlayerListener(this);
+
+    private static class MyPlayerListener implements MediaPlayer.EventListener {
+        private WeakReference<ReactVideoView> mOwner;
+
+        public MyPlayerListener(ReactVideoView owner) {
+            mOwner = new WeakReference<ReactVideoView>(owner);
+        }
+
+        @Override
+        public void onEvent(MediaPlayer.Event ev) {
+            ReactVideoView player = mOwner.get();
+            switch(ev.type) {
+                case MediaPlayer.Event.EndReached:
+                    Log.d(TAG, "MediaPlayerEndReached");
+                    player.releasePlayer();
+                    break;
+                case MediaPlayer.Event.EncounteredError:
+                    Log.d(TAG, "Media Player Error, re-try");
+                    //player.releasePlayer();
+                    break;
+                case MediaPlayer.Event.Playing:
+                    Log.d(TAG, "Media Player Playing");
+                    break;
+                case MediaPlayer.Event.Paused:
+                    Log.d(TAG, "Media Player Paused");
+                    break;
+                case MediaPlayer.Event.Stopped:
+                    Log.d(TAG, "Media Player Stopped");
+                    break;
+                case MediaPlayer.Event.TimeChanged:
+                    Log.d(TAG, "Time Changed");
+                    // WritableMap event = Arguments.createMap();
+                    // event.putDouble(EVENT_PROP_CURRENT_TIME, mMediaPlayer.getTime() / 1000.0);
+                    // mEventEmitter.mEventEmitter.receiveEvent(getId(), Events.EVENT_PROGRESS.toString(), event);
+                    break;
+                default:
+                    break;
+            }
+        }
+    }
+
+    /*
     @Override
     public void onPrepared(MediaPlayer mp) {
-
-        mMediaPlayerValid = true;
         mVideoDuration = mp.getDuration();
 
         WritableMap naturalSize = Arguments.createMap();
         naturalSize.putInt(EVENT_PROP_WIDTH, mp.getVideoWidth());
         naturalSize.putInt(EVENT_PROP_HEIGHT, mp.getVideoHeight());
-        if (mp.getVideoWidth() > mp.getVideoHeight())
-            naturalSize.putString(EVENT_PROP_ORIENTATION, "landscape");
-        else
-            naturalSize.putString(EVENT_PROP_ORIENTATION, "portrait");
 
         WritableMap event = Arguments.createMap();
         event.putDouble(EVENT_PROP_DURATION, mVideoDuration / 1000.0);
         event.putDouble(EVENT_PROP_CURRENT_TIME, mp.getCurrentPosition() / 1000.0);
-        // TODO: Actually check if you can.
-        event.putBoolean(EVENT_PROP_FAST_FORWARD, true);
-        event.putBoolean(EVENT_PROP_SLOW_FORWARD, true);
-        event.putBoolean(EVENT_PROP_SLOW_REVERSE, true);
-        event.putBoolean(EVENT_PROP_REVERSE, true);
-        event.putBoolean(EVENT_PROP_FAST_FORWARD, true);
-        event.putBoolean(EVENT_PROP_STEP_BACKWARD, true);
-        event.putBoolean(EVENT_PROP_STEP_FORWARD, true);
+
         mEventEmitter.receiveEvent(getId(), Events.EVENT_LOAD.toString(), event);
 
         applyModifiers();
@@ -261,21 +328,9 @@ public class ReactVideoView extends SurfaceView implements IVLCVout.Callback {
 
     @Override
     public boolean onError(MediaPlayer mp, int what, int extra) {
-
         WritableMap error = Arguments.createMap();
         error.putInt(EVENT_PROP_WHAT, what);
         error.putInt(EVENT_PROP_EXTRA, extra);
-        WritableMap event = Arguments.createMap();
-        event.putMap(EVENT_PROP_ERROR, error);
-        mEventEmitter.receiveEvent(getId(), Events.EVENT_ERROR.toString(), event);
-        return true;
-    }
-
-    @Override
-    public void onHardwareAccelerationError(IVLCVout vout) {
-        // Handle errors with hardware acceleration
-        WritableMap error = Arguments.createMap();
-        error.putInt(EVENT_PROP_WHAT, "Error with hardware acceleration");
         WritableMap event = Arguments.createMap();
         event.putMap(EVENT_PROP_ERROR, error);
         mEventEmitter.receiveEvent(getId(), Events.EVENT_ERROR.toString(), event);
@@ -301,74 +356,25 @@ public class ReactVideoView extends SurfaceView implements IVLCVout.Callback {
     }
 
     @Override
-    public void onBufferingUpdate(MediaPlayer mp, int percent) {
-        mVideoBufferedDuration = (int) Math.round((double) (mVideoDuration * percent) / 100.0);
-    }
-
-    @Override
-    public void seekTo(int msec) {
-        if (mMediaPlayerValid) {
-            WritableMap event = Arguments.createMap();
-            event.putDouble(EVENT_PROP_CURRENT_TIME, getCurrentPosition() / 1000.0);
-            event.putDouble(EVENT_PROP_SEEK_TIME, msec / 1000.0);
-            mEventEmitter.receiveEvent(getId(), Events.EVENT_SEEK.toString(), event);
-
-            super.seekTo(msec);
-            if (isCompleted && mVideoDuration != 0 && msec < mVideoDuration) {
-                isCompleted = false;
-            }
-        }
-    }
-
-    @Override
-    public int getBufferPercentage() {
-        return 0;
-    }
-
-    @Override
-    public boolean canPause() {
-        return true;
-    }
-
-    @Override
-    public boolean canSeekBackward() {
-        return true;
-    }
-
-    @Override
-    public boolean canSeekForward() {
-        return true;
-    }
-
-    @Override
-    public int getAudioSessionId() {
-        return 0;
-    }
-
-    @Override
     public void onCompletion(MediaPlayer mp) {
-
         isCompleted = true;
         mEventEmitter.receiveEvent(getId(), Events.EVENT_END.toString(), null);
     }
+    */
 
     @Override
     protected void onDetachedFromWindow() {
-
-        mMediaPlayerValid = false;
         super.onDetachedFromWindow();
     }
 
     @Override
     protected void onAttachedToWindow() {
-
         super.onAttachedToWindow();
-        setSrc(mSrcUriString, mSrcIsNetwork, mSrcIsAsset);
+        setSrc(mSrcUriString);
     }
 
     @Override
     public void onHostPause() {
-
         if (mMediaPlayer != null) {
             mMediaPlayer.pause();
         }

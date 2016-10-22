@@ -48,9 +48,7 @@ public class ReactVideoViewManager extends SimpleViewManager<ReactVideoView> {
     @ReactProp(name = PROP_SRC)
     public void setSrc(final ReactVideoView videoView, @Nullable ReadableMap src) {
         videoView.setSrc(
-                src.getString(PROP_SRC_URI),
-                src.getBoolean(PROP_SRC_IS_NETWORK),
-                src.getBoolean(PROP_SRC_IS_ASSET)
+            src.getString(PROP_SRC_URI)
         );
     }
 
