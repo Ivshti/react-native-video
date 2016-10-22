@@ -27,6 +27,8 @@ import org.videolan.libvlc.util.AndroidUtil;
 import java.util.HashMap;
 import java.util.Map;
 
+// This originally extended ScalableVideoView, which extends TextureView
+// Now we extend SurfaceView (https://github.com/crosswalk-project/crosswalk-website/wiki/Android-SurfaceView-vs-TextureView)
 public class ReactVideoView extends SurfaceView implements IVLCVout.Callback {
 
     public enum Events {
@@ -90,13 +92,11 @@ public class ReactVideoView extends SurfaceView implements IVLCVout.Callback {
     private boolean mMuted = false;
     private float mVolume = 1.0f;
     private float mRate = 1.0f;
-    private boolean mPlayInBackground = false;
 
     private boolean mMediaPlayerValid = false; // True if mMediaPlayer is in prepared, started, paused or completed state.
     private int mVideoDuration = 0;
     private int mVideoBufferedDuration = 0;
     private boolean isCompleted = false;
-    private boolean mUseNativeControls = false;
 
     public ReactVideoView(ThemedReactContext themedReactContext) {
         super(themedReactContext);
@@ -126,11 +126,6 @@ public class ReactVideoView extends SurfaceView implements IVLCVout.Callback {
 
     @Override
     public boolean onTouchEvent(MotionEvent event) {
-        if (mUseNativeControls) {
-            initializeMediaControllerIfNeeded();
-            mediaController.show();
-        }
-
         return super.onTouchEvent(event);
     }
 
@@ -279,16 +274,6 @@ public class ReactVideoView extends SurfaceView implements IVLCVout.Callback {
 //        setRateModifier(mRate);
     }
 
-    public void setPlayInBackground(final boolean playInBackground) {
-
-        mPlayInBackground = playInBackground;
-    }
-
-    public void setControls(boolean controls) {
-        this.mUseNativeControls = controls;
-    }
-
-
     @Override
     public void onPrepared(MediaPlayer mp) {
 
@@ -318,20 +303,6 @@ public class ReactVideoView extends SurfaceView implements IVLCVout.Callback {
         mEventEmitter.receiveEvent(getId(), Events.EVENT_LOAD.toString(), event);
 
         applyModifiers();
-
-        if (mUseNativeControls) {
-            initializeMediaControllerIfNeeded();
-            mediaController.setMediaPlayer(this);
-            mediaController.setAnchorView(this);
-
-            videoControlHandler.post(new Runnable() {
-                @Override
-                public void run() {
-                    mediaController.setEnabled(true);
-                    mediaController.show();
-                }
-            });
-        }
     }
 
     @Override
@@ -445,7 +416,7 @@ public class ReactVideoView extends SurfaceView implements IVLCVout.Callback {
     @Override
     public void onHostPause() {
 
-        if (mMediaPlayer != null && !mPlayInBackground) {
+        if (mMediaPlayer != null) {
             mMediaPlayer.pause();
         }
     }
