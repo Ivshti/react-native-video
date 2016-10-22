@@ -65,7 +65,6 @@ public class ReactVideoView extends SurfaceView implements IVLCVout.Callback {
     public static final String EVENT_PROP_PLAYABLE_DURATION = "playableDuration";
     public static final String EVENT_PROP_CURRENT_TIME = "currentTime";
     public static final String EVENT_PROP_SEEK_TIME = "seekTime";
-    public static final String EVENT_PROP_NATURALSIZE = "naturalSize";
     public static final String EVENT_PROP_WIDTH = "width";
     public static final String EVENT_PROP_HEIGHT = "height";
     public static final String EVENT_PROP_ORIENTATION = "orientation";
@@ -247,7 +246,6 @@ public class ReactVideoView extends SurfaceView implements IVLCVout.Callback {
         WritableMap event = Arguments.createMap();
         event.putDouble(EVENT_PROP_DURATION, mVideoDuration / 1000.0);
         event.putDouble(EVENT_PROP_CURRENT_TIME, mp.getCurrentPosition() / 1000.0);
-        event.putMap(EVENT_PROP_NATURALSIZE, naturalSize);
         // TODO: Actually check if you can.
         event.putBoolean(EVENT_PROP_FAST_FORWARD, true);
         event.putBoolean(EVENT_PROP_SLOW_FORWARD, true);

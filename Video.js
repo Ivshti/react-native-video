@@ -18,14 +18,6 @@ export default class Video extends Component {
     this.setNativeProps({ seek: time });
   };
 
-  presentFullscreenPlayer = () => {
-    this.setNativeProps({ fullscreen: true });
-  };
-
-  dismissFullscreenPlayer = () => {
-    this.setNativeProps({ fullscreen: false });
-  };
-
   _assignRoot = (component) => {
     this._root = component;
   };
@@ -66,30 +58,6 @@ export default class Video extends Component {
     }
   };
 
-  _onFullscreenPlayerWillPresent = (event) => {
-    if (this.props.onFullscreenPlayerWillPresent) {
-      this.props.onFullscreenPlayerWillPresent(event.nativeEvent);
-    }
-  };
-
-  _onFullscreenPlayerDidPresent = (event) => {
-    if (this.props.onFullscreenPlayerDidPresent) {
-      this.props.onFullscreenPlayerDidPresent(event.nativeEvent);
-    }
-  };
-
-  _onFullscreenPlayerWillDismiss = (event) => {
-    if (this.props.onFullscreenPlayerWillDismiss) {
-      this.props.onFullscreenPlayerWillDismiss(event.nativeEvent);
-    }
-  };
-
-  _onFullscreenPlayerDidDismiss = (event) => {
-    if (this.props.onFullscreenPlayerDidDismiss) {
-      this.props.onFullscreenPlayerDidDismiss(event.nativeEvent);
-    }
-  };
-
   _onReadyForDisplay = (event) => {
     if (this.props.onReadyForDisplay) {
       this.props.onReadyForDisplay(event.nativeEvent);
@@ -105,12 +73,6 @@ export default class Video extends Component {
   _onPlaybackResume = (event) => {
     if (this.props.onPlaybackResume) {
       this.props.onPlaybackResume(event.nativeEvent);
-    }
-  };
-
-  _onPlaybackRateChange = (event) => {
-    if (this.props.onPlaybackRateChange) {
-      this.props.onPlaybackRateChange(event.nativeEvent);
     }
   };
 
@@ -131,8 +93,7 @@ export default class Video extends Component {
       src: {
         uri,
         isNetwork,
-        isAsset,
-        type: source.type || 'mp4',
+        isAsset
       },
       onVideoLoadStart: this._onLoadStart,
       onVideoLoad: this._onLoad,
@@ -140,18 +101,13 @@ export default class Video extends Component {
       onVideoProgress: this._onProgress,
       onVideoSeek: this._onSeek,
       onVideoEnd: this._onEnd,
-      onVideoFullscreenPlayerWillPresent: this._onFullscreenPlayerWillPresent,
-      onVideoFullscreenPlayerDidPresent: this._onFullscreenPlayerDidPresent,
-      onVideoFullscreenPlayerWillDismiss: this._onFullscreenPlayerWillDismiss,
-      onVideoFullscreenPlayerDidDismiss: this._onFullscreenPlayerDidDismiss,
       onReadyForDisplay: this._onReadyForDisplay,
       onPlaybackStalled: this._onPlaybackStalled,
-      onPlaybackResume: this._onPlaybackResume,
-      onPlaybackRateChange: this._onPlaybackRateChange,
+      onPlaybackResume: this._onPlaybackResume
     });
 
     return (
-      <RCTVideo
+      <RCTVLC
         ref={this._assignRoot}
         {...nativeProps}
       />
@@ -163,7 +119,6 @@ Video.propTypes = {
   /* Native only */
   src: PropTypes.object,
   seek: PropTypes.number,
-  fullscreen: PropTypes.bool,
 
   /* Wrapper component */
   source: PropTypes.oneOfType([
@@ -173,14 +128,8 @@ Video.propTypes = {
     // Opaque type returned by require('./video.mp4')
     PropTypes.number
   ]),
-  repeat: PropTypes.bool,
   paused: PropTypes.bool,
-  muted: PropTypes.bool,
   volume: PropTypes.number,
-  rate: PropTypes.number,
-  playInBackground: PropTypes.bool,
-  playWhenInactive: PropTypes.bool,
-  controls: PropTypes.bool,
   currentTime: PropTypes.number,
   onLoadStart: PropTypes.func,
   onLoad: PropTypes.func,
@@ -188,14 +137,9 @@ Video.propTypes = {
   onProgress: PropTypes.func,
   onSeek: PropTypes.func,
   onEnd: PropTypes.func,
-  onFullscreenPlayerWillPresent: PropTypes.func,
-  onFullscreenPlayerDidPresent: PropTypes.func,
-  onFullscreenPlayerWillDismiss: PropTypes.func,
-  onFullscreenPlayerDidDismiss: PropTypes.func,
   onReadyForDisplay: PropTypes.func,
   onPlaybackStalled: PropTypes.func,
   onPlaybackResume: PropTypes.func,
-  onPlaybackRateChange: PropTypes.func,
 
   /* Required by react-native */
   scaleX: PropTypes.number,
@@ -206,7 +150,7 @@ Video.propTypes = {
   ...View.propTypes,
 };
 
-const RCTVideo = requireNativeComponent('RCTVideo', Video, {
+const RCTVLC = requireNativeComponent('RCTVLC', Video, {
   nativeOnly: {
     src: true,
     seek: true,
