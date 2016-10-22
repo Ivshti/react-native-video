@@ -1,6 +1,5 @@
-package com.brentvatne.react;
+package com.stremio.react;
 
-import android.media.MediaPlayer;
 import android.net.Uri;
 import android.os.Handler;
 import android.util.Log;
@@ -13,14 +12,22 @@ import com.facebook.react.bridge.LifecycleEventListener;
 import com.facebook.react.bridge.WritableMap;
 import com.facebook.react.uimanager.ThemedReactContext;
 import com.facebook.react.uimanager.events.RCTEventEmitter;
-import com.yqritc.scalablevideoview.ScalableType;
-import com.yqritc.scalablevideoview.ScalableVideoView;
+
+import android.view.Surface;
+import android.view.SurfaceHolder;
+import android.view.SurfaceView;
+
+import org.videolan.libvlc.IVLCVout;
+import org.videolan.libvlc.LibVLC;
+import org.videolan.libvlc.Media;
+import org.videolan.libvlc.MediaPlayer;
+import org.videolan.libvlc.util.AndroidUtil;
+
 
 import java.util.HashMap;
 import java.util.Map;
 
-public class ReactVideoView extends ScalableVideoView implements MediaPlayer.OnPreparedListener, MediaPlayer
-        .OnErrorListener, MediaPlayer.OnBufferingUpdateListener, MediaPlayer.OnCompletionListener, MediaPlayer.OnInfoListener, LifecycleEventListener, MediaController.MediaPlayerControl {
+public class ReactVideoView extends ScalableVideoView implements IVLCVout.Callback {
 
     public enum Events {
         EVENT_LOAD_START("onVideoLoadStart"),
@@ -78,7 +85,6 @@ public class ReactVideoView extends ScalableVideoView implements MediaPlayer.OnP
     private String mSrcType = "mp4";
     private boolean mSrcIsNetwork = false;
     private boolean mSrcIsAsset = false;
-    private ScalableType mResizeMode = ScalableType.LEFT_TOP;
     private boolean mRepeat = false;
     private boolean mPaused = false;
     private boolean mMuted = false;
@@ -210,15 +216,6 @@ public class ReactVideoView extends ScalableVideoView implements MediaPlayer.OnP
         prepareAsync(this);
     }
 
-    public void setResizeModeModifier(final ScalableType resizeMode) {
-        mResizeMode = resizeMode;
-
-        if (mMediaPlayerValid) {
-            setScalableType(resizeMode);
-            invalidate();
-        }
-    }
-
     public void setRepeatModifier(final boolean repeat) {
 
         mRepeat = repeat;
@@ -276,7 +273,6 @@ public class ReactVideoView extends ScalableVideoView implements MediaPlayer.OnP
     }
 
     public void applyModifiers() {
-        setResizeModeModifier(mResizeMode);
         setRepeatModifier(mRepeat);
         setPausedModifier(mPaused);
         setMutedModifier(mMuted);
