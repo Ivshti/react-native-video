@@ -1,7 +1,7 @@
 {
-  "name": "react-native-video",
-  "version": "0.9.0",
-  "description": "A <Video /> element for react-native",
+  "name": "react-native-vlc",
+  "version": "0.1.0",
+  "description": "A <Video /> element for react-native for VLC",
   "main": "Video.js",
   "license": "MIT",
   "author": "Brent Vatne <brentvatne@gmail.com> (https://github.com/brentvatne)",
@@ -28,7 +28,7 @@
   ],
   "repository": {
     "type": "git",
-    "url": "git@github.com:brentvatne/react-native-video.git"
+    "url": "git@github.com:brentvatne/react-native-vlc.git"
   },
   "devDependencies": {
     "jest-cli": "0.2.1",
