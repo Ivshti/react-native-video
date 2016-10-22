@@ -19,15 +19,11 @@ public class ReactVideoViewManager extends SimpleViewManager<ReactVideoView> {
 
     public static final String PROP_SRC = "src";
     public static final String PROP_SRC_URI = "uri";
-    public static final String PROP_SRC_TYPE = "type";
     public static final String PROP_SRC_IS_NETWORK = "isNetwork";
     public static final String PROP_SRC_IS_ASSET = "isAsset";
-    public static final String PROP_REPEAT = "repeat";
     public static final String PROP_PAUSED = "paused";
-    public static final String PROP_MUTED = "muted";
     public static final String PROP_VOLUME = "volume";
     public static final String PROP_SEEK = "seek";
-    public static final String PROP_RATE = "rate";
 
     @Override
     public String getName() {
@@ -53,25 +49,14 @@ public class ReactVideoViewManager extends SimpleViewManager<ReactVideoView> {
     public void setSrc(final ReactVideoView videoView, @Nullable ReadableMap src) {
         videoView.setSrc(
                 src.getString(PROP_SRC_URI),
-                src.getString(PROP_SRC_TYPE),
                 src.getBoolean(PROP_SRC_IS_NETWORK),
                 src.getBoolean(PROP_SRC_IS_ASSET)
         );
     }
 
-    @ReactProp(name = PROP_REPEAT, defaultBoolean = false)
-    public void setRepeat(final ReactVideoView videoView, final boolean repeat) {
-        videoView.setRepeatModifier(repeat);
-    }
-
     @ReactProp(name = PROP_PAUSED, defaultBoolean = false)
     public void setPaused(final ReactVideoView videoView, final boolean paused) {
         videoView.setPausedModifier(paused);
-    }
-
-    @ReactProp(name = PROP_MUTED, defaultBoolean = false)
-    public void setMuted(final ReactVideoView videoView, final boolean muted) {
-        videoView.setMutedModifier(muted);
     }
 
     @ReactProp(name = PROP_VOLUME, defaultFloat = 1.0f)
@@ -82,10 +67,5 @@ public class ReactVideoViewManager extends SimpleViewManager<ReactVideoView> {
     @ReactProp(name = PROP_SEEK)
     public void setSeek(final ReactVideoView videoView, final float seek) {
         videoView.seekTo(Math.round(seek * 1000.0f));
-    }
-
-    @ReactProp(name = PROP_RATE)
-    public void setRate(final ReactVideoView videoView, final float rate) {
-        videoView.setRateModifier(rate);
     }
 }

@@ -82,16 +82,11 @@ public class ReactVideoView extends SurfaceView implements IVLCVout.Callback {
     private Handler videoControlHandler = new Handler();
     private MediaController mediaController;
 
-
     private String mSrcUriString = null;
-    private String mSrcType = "mp4";
     private boolean mSrcIsNetwork = false;
     private boolean mSrcIsAsset = false;
-    private boolean mRepeat = false;
     private boolean mPaused = false;
-    private boolean mMuted = false;
     private float mVolume = 1.0f;
-    private float mRate = 1.0f;
 
     private boolean mMediaPlayerValid = false; // True if mMediaPlayer is in prepared, started, paused or completed state.
     private int mVideoDuration = 0;
@@ -149,10 +144,9 @@ public class ReactVideoView extends SurfaceView implements IVLCVout.Callback {
         }
     }
 
-    public void setSrc(final String uriString, final String type, final boolean isNetwork, final boolean isAsset) {
+    public void setSrc(final String uriString, final boolean isNetwork, final boolean isAsset) {
 
         mSrcUriString = uriString;
-        mSrcType = type;
         mSrcIsNetwork = isNetwork;
         mSrcIsAsset = isAsset;
 
@@ -202,7 +196,6 @@ public class ReactVideoView extends SurfaceView implements IVLCVout.Callback {
 
         WritableMap src = Arguments.createMap();
         src.putString(ReactVideoViewManager.PROP_SRC_URI, uriString);
-        src.putString(ReactVideoViewManager.PROP_SRC_TYPE, type);
         src.putBoolean(ReactVideoViewManager.PROP_SRC_IS_NETWORK, isNetwork);
         WritableMap event = Arguments.createMap();
         event.putMap(ReactVideoViewManager.PROP_SRC, src);
@@ -211,17 +204,7 @@ public class ReactVideoView extends SurfaceView implements IVLCVout.Callback {
         prepareAsync(this);
     }
 
-    public void setRepeatModifier(final boolean repeat) {
-
-        mRepeat = repeat;
-
-        if (mMediaPlayerValid) {
-            setLooping(repeat);
-        }
-    }
-
     public void setPausedModifier(final boolean paused) {
-
         mPaused = paused;
 
         if (!mMediaPlayerValid) {
@@ -239,39 +222,12 @@ public class ReactVideoView extends SurfaceView implements IVLCVout.Callback {
         }
     }
 
-    public void setMutedModifier(final boolean muted) {
-        mMuted = muted;
-
-        if (!mMediaPlayerValid) {
-            return;
-        }
-
-        if (mMuted) {
-            setVolume(0, 0);
-        } else {
-            setVolume(mVolume, mVolume);
-        }
-    }
-
     public void setVolumeModifier(final float volume) {
         mVolume = volume;
-        setMutedModifier(mMuted);
-    }
-
-    public void setRateModifier(final float rate) {
-        mRate = rate;
-
-        if (mMediaPlayerValid) {
-            // TODO: Implement this.
-            Log.e(ReactVideoViewManager.REACT_CLASS, "Setting playback rate is not yet supported on Android");
-        }
     }
 
     public void applyModifiers() {
-        setRepeatModifier(mRepeat);
         setPausedModifier(mPaused);
-        setMutedModifier(mMuted);
-//        setRateModifier(mRate);
     }
 
     @Override
@@ -353,7 +309,6 @@ public class ReactVideoView extends SurfaceView implements IVLCVout.Callback {
 
     @Override
     public void seekTo(int msec) {
-
         if (mMediaPlayerValid) {
             WritableMap event = Arguments.createMap();
             event.putDouble(EVENT_PROP_CURRENT_TIME, getCurrentPosition() / 1000.0);
@@ -410,7 +365,7 @@ public class ReactVideoView extends SurfaceView implements IVLCVout.Callback {
     protected void onAttachedToWindow() {
 
         super.onAttachedToWindow();
-        setSrc(mSrcUriString, mSrcType, mSrcIsNetwork, mSrcIsAsset);
+        setSrc(mSrcUriString, mSrcIsNetwork, mSrcIsAsset);
     }
 
     @Override
