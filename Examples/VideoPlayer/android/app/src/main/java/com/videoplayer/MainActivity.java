@@ -1,7 +1,7 @@
 package com.videoplayer;
 
 import com.facebook.react.ReactActivity;
-import com.brentvatne.react.ReactVideoPackage;
+import com.stremio.react.ReactVLCPackage;
 import com.facebook.react.ReactPackage;
 import com.facebook.react.shell.MainReactPackage;
 
@@ -36,6 +36,6 @@ public class MainActivity extends ReactActivity {
     protected List<ReactPackage> getPackages() {
       return Arrays.<ReactPackage>asList(
         new MainReactPackage(),
-        new ReactVideoPackage());
+        new ReactVLCPackage());
     }
 }

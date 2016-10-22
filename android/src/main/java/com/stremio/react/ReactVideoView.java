@@ -27,7 +27,7 @@ import org.videolan.libvlc.util.AndroidUtil;
 import java.util.HashMap;
 import java.util.Map;
 
-public class ReactVideoView extends ScalableVideoView implements IVLCVout.Callback {
+public class ReactVideoView extends SurfaceView implements IVLCVout.Callback {
 
     public enum Events {
         EVENT_LOAD_START("onVideoLoadStart"),
@@ -340,6 +340,17 @@ public class ReactVideoView extends ScalableVideoView implements IVLCVout.Callba
         WritableMap error = Arguments.createMap();
         error.putInt(EVENT_PROP_WHAT, what);
         error.putInt(EVENT_PROP_EXTRA, extra);
+        WritableMap event = Arguments.createMap();
+        event.putMap(EVENT_PROP_ERROR, error);
+        mEventEmitter.receiveEvent(getId(), Events.EVENT_ERROR.toString(), event);
+        return true;
+    }
+
+    @Override
+    public void onHardwareAccelerationError(IVLCVout vout) {
+        // Handle errors with hardware acceleration
+        WritableMap error = Arguments.createMap();
+        error.putInt(EVENT_PROP_WHAT, "Error with hardware acceleration");
         WritableMap event = Arguments.createMap();
         event.putMap(EVENT_PROP_ERROR, error);
         mEventEmitter.receiveEvent(getId(), Events.EVENT_ERROR.toString(), event);
